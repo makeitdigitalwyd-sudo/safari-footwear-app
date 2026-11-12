@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SAFARI FOOTWEAR - Store POS & Daily Ledger</title>
+  <!-- PWA Standalone App Meta Tags (Removes Chrome Address Bar & Badge when installed) -->
+  <meta name="theme-color" content="#064E3B">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Safari POS">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
   <!-- Tailwind CSS 3.4.17 -->
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <!-- FontAwesome 6 -->
@@ -5081,6 +5090,10 @@
       setExpenseCategory('business');
       renderCurrentView();
       initFirebaseSync();
+      // Register Service Worker for standalone PWA installation on mobile/desktop
+      if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
     });
   </script>
 </body>

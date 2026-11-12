@@ -2185,6 +2185,14 @@
 
     const STORAGE_KEY = 'safari_footwear_pos_v3';
     const FIREBASE_CFG_KEY = 'safari_firebase_config_v1';
+    // Embedded default Firebase configuration for Safari Footwear (Instant Zero-Config on all devices)
+    const EMBEDDED_FIREBASE_CONFIG = {
+      storeId: 'safari-footwear-main',
+      projectId: 'safari-app-11ddb',
+      apiKey: 'AIzaSyDhk2_g0EGTYQavUCPQYjcdAMOPvOKhkRw',
+      authDomain: 'safari-app-11ddb.firebaseapp.com',
+      appId: '1:284373697941:web:c1efd2337b65af3de4e29c'
+    };
     const DEVICE_CLIENT_ID = 'dev_' + Math.random().toString(36).slice(2, 10);
     let fbDb = null;
     let fbUnsubscribe = null;
@@ -4792,10 +4800,9 @@
     function getSavedFirebaseConfig() {
       try {
         const raw = localStorage.getItem(FIREBASE_CFG_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        return null;
-      }
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return EMBEDDED_FIREBASE_CONFIG;
     }
 
     function updateCloudSyncUI() {

@@ -16,6 +16,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
   <!-- html2pdf.js 0.10.1 for instant PDF statements & reports -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Firebase App & Firestore Compat SDKs for real-time multi-device cloud sync -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -90,6 +93,13 @@
 
         <!-- Date Selector, Store Settings & Role Switcher -->
         <div class="flex items-center space-x-2 sm:space-x-3">
+          <!-- Firebase Cloud Sync Status Button -->
+          <button id="cloudSyncStatusBtn" onclick="openFirebaseSyncModal()" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-emerald-200 hover:text-white transition text-xs font-semibold flex items-center space-x-1.5" title="Configure Firebase Cloud Storage & Multi-Device Sync">
+            <span id="cloudSyncDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <i class="fa-solid fa-cloud text-sky-300"></i>
+            <span id="cloudSyncLabel" class="hidden lg:inline">Local Only</span>
+          </button>
+
           <!-- Store Details Edit Button -->
           <button onclick="openShopDetailsModal()" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-emerald-200 hover:text-white transition text-xs font-semibold flex items-center space-x-1.5" title="Edit Shop Details (GSTIN, Address, Phone)">
             <i class="fa-solid fa-store text-amber-300"></i>
@@ -2040,6 +2050,105 @@
     </div>
   </div>
 
+  <!-- 13. FIREBASE CLOUD STORAGE & MULTI-DEVICE SYNC MODAL -->
+  <div id="modalFirebaseSync" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 my-auto">
+      <div class="bg-gradient-to-r from-sky-800 to-indigo-900 text-white px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-cloud-arrow-up text-sky-300"></i>
+          <h3 class="font-extrabold text-sm sm:text-base">Firebase Cloud Storage & Live Sync</h3>
+        </div>
+        <button onclick="closeModal('modalFirebaseSync')" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-4 space-y-3.5 text-xs max-h-[85vh] overflow-y-auto">
+        <!-- Connection Status Card -->
+        <div id="fbStatusBanner" class="p-3 rounded-xl border bg-amber-50 border-amber-200 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <span id="fbModalDot" class="w-3 h-3 rounded-full bg-amber-500"></span>
+            <div>
+              <div id="fbModalStatusTitle" class="font-extrabold text-amber-950">Local Storage Mode (Offline)</div>
+              <div id="fbModalStatusSub" class="text-[11px] text-amber-800">Data is saved only on this device. Connect Firebase to sync across staff phones & owner laptop.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Setup Guide (Collapsible) -->
+        <details class="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+          <summary class="font-bold text-slate-800 cursor-pointer flex items-center justify-between">
+            <span><i class="fa-solid fa-circle-question text-sky-600 mr-1.5"></i>How to get your free Firebase Config (2 mins)</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+          </summary>
+          <ol class="list-decimal list-inside space-y-1 text-[11px] text-slate-600 mt-2 pl-1">
+            <li>Go to <strong>console.firebase.google.com</strong> and click <strong>Create a project</strong> (e.g. <code>safari-footwear</code>).</li>
+            <li>In the left menu, open <strong>Build &gt; Firestore Database</strong>, click <strong>Create database</strong>, and choose <strong>Start in test mode</strong>.</li>
+            <li>Go to <strong>Project Settings</strong> (gear icon) &gt; <strong>Your apps</strong> &gt; click the <strong>Web (&lt;/&gt;)</strong> icon to register the app.</li>
+            <li>Copy the <code>firebaseConfig = { ... }</code> snippet and paste it in the box below!</li>
+          </ol>
+        </details>
+
+        <!-- Paste Full Config Snippet Helper -->
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Quick Paste Firebase Config Snippet (Optional):</label>
+          <textarea id="fbRawConfigPaste" rows="3" oninput="parseFirebaseConfigPaste(this.value)" placeholder="Paste your firebaseConfig = { apiKey: '...', projectId: '...', ... } here to auto-fill fields below" class="w-full p-2 border border-slate-300 rounded-lg font-mono text-[11px] bg-slate-50 focus:outline-none focus:border-sky-600"></textarea>
+        </div>
+
+        <form id="formFirebaseConfig" onsubmit="submitFirebaseConfig(event)" class="space-y-2.5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Store Sync ID <span class="text-rose-500">*</span></label>
+              <input type="text" id="fbStoreId" required value="safari-footwear-main" placeholder="e.g. safari-footwear-main" class="w-full p-2 border border-slate-300 rounded-lg font-mono font-bold text-slate-800">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Project ID <span class="text-rose-500">*</span></label>
+              <input type="text" id="fbProjectId" required placeholder="e.g. safari-footwear-12345" class="w-full p-2 border border-slate-300 rounded-lg font-mono">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">API Key <span class="text-rose-500">*</span></label>
+            <input type="text" id="fbApiKey" required placeholder="AIzaSy..." class="w-full p-2 border border-slate-300 rounded-lg font-mono">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Auth Domain</label>
+              <input type="text" id="fbAuthDomain" placeholder="project-id.firebaseapp.com" class="w-full p-2 border border-slate-300 rounded-lg font-mono">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">App ID <span class="text-rose-500">*</span></label>
+              <input type="text" id="fbAppId" required placeholder="1:123456:web:abcdef" class="w-full p-2 border border-slate-300 rounded-lg font-mono">
+            </div>
+          </div>
+
+          <div class="pt-1 flex flex-col sm:flex-row gap-2">
+            <button type="submit" class="flex-1 bg-gradient-to-r from-sky-700 to-indigo-700 hover:from-sky-800 hover:to-indigo-800 text-white font-extrabold text-xs py-2.5 rounded-xl shadow transition flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-plug-circle-check"></i>
+              <span>Connect &amp; Enable Live Sync</span>
+            </button>
+            <button type="button" onclick="disconnectFirebase()" id="btnFbDisconnect" class="hidden px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl transition">
+              Disconnect
+            </button>
+          </div>
+        </form>
+
+        <!-- Manual Cloud Sync Actions (Shown when connected) -->
+        <div id="fbManualActions" class="hidden pt-2 border-t border-slate-200 grid grid-cols-2 gap-2">
+          <button type="button" onclick="pushLocalToCloud(true)" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold py-2 rounded-lg text-xs flex items-center justify-center space-x-1.5 transition">
+            <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+            <span>Push Local &rarr; Cloud</span>
+          </button>
+          <button type="button" onclick="pullCloudToLocal()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold py-2 rounded-lg text-xs flex items-center justify-center space-x-1.5 transition">
+            <i class="fa-solid fa-cloud-arrow-down text-indigo-600"></i>
+            <span>Pull Cloud &rarr; Device</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed top-16 right-4 z-50 space-y-2 pointer-events-none"></div>
 
@@ -2075,6 +2184,14 @@
     ];
 
     const STORAGE_KEY = 'safari_footwear_pos_v3';
+    const FIREBASE_CFG_KEY = 'safari_firebase_config_v1';
+    const DEVICE_CLIENT_ID = 'dev_' + Math.random().toString(36).slice(2, 10);
+    let fbDb = null;
+    let fbUnsubscribe = null;
+    let fbConnected = false;
+    let fbStoreId = 'safari-footwear-main';
+    let fbLastSyncTime = '';
+    let isApplyingRemoteSnapshot = false;
 
     // Application State
     let shopDetails = { ...DEFAULT_SHOP_DETAILS };
@@ -2213,6 +2330,9 @@
           supplierProfiles
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        if (fbConnected && fbDb && !isApplyingRemoteSnapshot) {
+          pushLocalToCloud(false);
+        }
       } catch (e) {
         console.warn('Storage write error', e);
       }
@@ -4668,6 +4788,283 @@
     function openReconcileModal() { switchTab('reconcile'); }
     function openUserModal() { openModal('modalUser'); }
 
+    // ==================== FIREBASE CLOUD STORAGE & SYNC ====================
+    function getSavedFirebaseConfig() {
+      try {
+        const raw = localStorage.getItem(FIREBASE_CFG_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function updateCloudSyncUI() {
+      const dot = document.getElementById('cloudSyncDot');
+      const label = document.getElementById('cloudSyncLabel');
+      const btn = document.getElementById('cloudSyncStatusBtn');
+
+      const banner = document.getElementById('fbStatusBanner');
+      const mDot = document.getElementById('fbModalDot');
+      const mTitle = document.getElementById('fbModalStatusTitle');
+      const mSub = document.getElementById('fbModalStatusSub');
+      const btnDisc = document.getElementById('btnFbDisconnect');
+      const manualBox = document.getElementById('fbManualActions');
+
+      if (fbConnected) {
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+        if (label) label.innerText = 'Cloud Synced';
+        if (btn) btn.className = 'p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-400/40 text-emerald-100 transition text-xs font-semibold flex items-center space-x-1.5';
+
+        if (banner) banner.className = 'p-3 rounded-xl border bg-emerald-50 border-emerald-200 flex items-center justify-between';
+        if (mDot) mDot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+        if (mTitle) {
+          mTitle.className = 'font-extrabold text-emerald-950';
+          mTitle.innerText = 'Firebase Cloud Sync Active';
+        }
+        if (mSub) {
+          mSub.className = 'text-[11px] text-emerald-800';
+          mSub.innerText = `Connected to store "${fbStoreId}"${fbLastSyncTime ? ' • Last synced: ' + fbLastSyncTime : ''}`;
+        }
+        if (btnDisc) btnDisc.classList.remove('hidden');
+        if (manualBox) {
+          manualBox.classList.remove('hidden');
+          manualBox.classList.add('grid');
+        }
+      } else {
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+        if (label) label.innerText = 'Local Only';
+        if (btn) btn.className = 'p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-emerald-200 hover:text-white transition text-xs font-semibold flex items-center space-x-1.5';
+
+        if (banner) banner.className = 'p-3 rounded-xl border bg-amber-50 border-amber-200 flex items-center justify-between';
+        if (mDot) mDot.className = 'w-3 h-3 rounded-full bg-amber-500';
+        if (mTitle) {
+          mTitle.className = 'font-extrabold text-amber-950';
+          mTitle.innerText = 'Local Storage Mode (Offline)';
+        }
+        if (mSub) {
+          mSub.className = 'text-[11px] text-amber-800';
+          mSub.innerText = 'Data is saved only on this device. Connect Firebase to sync across staff phones & owner laptop.';
+        }
+        if (btnDisc) btnDisc.classList.add('hidden');
+        if (manualBox) {
+          manualBox.classList.add('hidden');
+          manualBox.classList.remove('grid');
+        }
+      }
+    }
+
+    function openFirebaseSyncModal() {
+      const cfg = getSavedFirebaseConfig();
+      if (cfg) {
+        document.getElementById('fbStoreId').value = cfg.storeId || 'safari-footwear-main';
+        document.getElementById('fbProjectId').value = cfg.projectId || '';
+        document.getElementById('fbApiKey').value = cfg.apiKey || '';
+        document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
+        document.getElementById('fbAppId').value = cfg.appId || '';
+      }
+      updateCloudSyncUI();
+      openModal('modalFirebaseSync');
+    }
+
+    function parseFirebaseConfigPaste(rawText) {
+      if (!rawText || !rawText.trim()) return;
+      const extract = (key) => {
+        const regex = new RegExp(key + `\s*[:=]\s*["']([^"']+)["']`);
+        const m = rawText.match(regex);
+        return m ? m[1] : '';
+      };
+      const apiKey = extract('apiKey');
+      const authDomain = extract('authDomain');
+      const projectId = extract('projectId');
+      const appId = extract('appId');
+
+      if (apiKey) document.getElementById('fbApiKey').value = apiKey;
+      if (authDomain) document.getElementById('fbAuthDomain').value = authDomain;
+      if (projectId) document.getElementById('fbProjectId').value = projectId;
+      if (appId) document.getElementById('fbAppId').value = appId;
+
+      if (apiKey && projectId) {
+        showToast('Firebase config fields auto-filled!', 'success');
+      }
+    }
+
+    function connectFirebaseInstance(cfg, showFeedback = true) {
+      if (typeof firebase === 'undefined') {
+        if (showFeedback) showToast('Firebase SDK still loading or offline. Check internet.', 'warn');
+        return false;
+      }
+      try {
+        if (fbUnsubscribe) {
+          fbUnsubscribe();
+          fbUnsubscribe = null;
+        }
+        // Reuse or initialize Firebase app
+        let app;
+        if (firebase.apps && firebase.apps.length > 0) {
+          const existing = firebase.apps.find(a => a.name === 'safariPosCloud');
+          if (existing) {
+            existing.delete().then(() => {});
+          }
+          app = firebase.initializeApp({
+            apiKey: cfg.apiKey,
+            authDomain: cfg.authDomain || `${cfg.projectId}.firebaseapp.com`,
+            projectId: cfg.projectId,
+            appId: cfg.appId
+          }, 'safariPosCloud_' + Date.now());
+        } else {
+          app = firebase.initializeApp({
+            apiKey: cfg.apiKey,
+            authDomain: cfg.authDomain || `${cfg.projectId}.firebaseapp.com`,
+            projectId: cfg.projectId,
+            appId: cfg.appId
+          });
+        }
+
+        fbDb = app.firestore();
+        fbStoreId = cfg.storeId || 'safari-footwear-main';
+        fbConnected = true;
+
+        // Subscribe to real-time updates on stores/{fbStoreId}
+        fbUnsubscribe = fbDb.collection('safari_stores').doc(fbStoreId).onSnapshot((doc) => {
+          if (doc.exists) {
+            const remote = doc.data();
+            fbLastSyncTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (remote && remote.updatedBy !== DEVICE_CLIENT_ID) {
+              isApplyingRemoteSnapshot = true;
+              if (remote.appData) appData = remote.appData;
+              if (remote.shopDetails) shopDetails = { ...DEFAULT_SHOP_DETAILS, ...remote.shopDetails };
+              if (remote.staffProfiles) staffProfiles = remote.staffProfiles;
+              if (remote.supplierProfiles) supplierProfiles = remote.supplierProfiles;
+
+              localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                appData, shopDetails, staffProfiles, supplierProfiles
+              }));
+              isApplyingRemoteSnapshot = false;
+              populateCreatorDropdowns();
+              renderCurrentView();
+              showToast('Synced live update from cloud!', 'info');
+            }
+            updateCloudSyncUI();
+          } else {
+            // First time connecting to empty cloud doc: push local seed data up
+            pushLocalToCloud(false);
+          }
+        }, (err) => {
+          console.error('Firestore listener error:', err);
+          showToast('Cloud sync permission/network error: ' + err.message, 'warn');
+        });
+
+        updateCloudSyncUI();
+        if (showFeedback) showToast('Connected to Firebase Cloud Storage!', 'success');
+        return true;
+      } catch (err) {
+        console.error('Firebase init failed:', err);
+        fbConnected = false;
+        updateCloudSyncUI();
+        if (showFeedback) showToast('Firebase connection failed: ' + err.message, 'warn');
+        return false;
+      }
+    }
+
+    function submitFirebaseConfig(e) {
+      e.preventDefault();
+      if (currentUser.role !== 'owner') {
+        showToast('Only Store Owner can configure cloud sync settings.', 'warn');
+        return;
+      }
+      const cfg = {
+        storeId: document.getElementById('fbStoreId').value.trim() || 'safari-footwear-main',
+        projectId: document.getElementById('fbProjectId').value.trim(),
+        apiKey: document.getElementById('fbApiKey').value.trim(),
+        authDomain: document.getElementById('fbAuthDomain').value.trim(),
+        appId: document.getElementById('fbAppId').value.trim()
+      };
+      try {
+        localStorage.setItem(FIREBASE_CFG_KEY, JSON.stringify(cfg));
+      } catch (err) {}
+      connectFirebaseInstance(cfg, true);
+    }
+
+    function pushLocalToCloud(showFeedback = true) {
+      if (!fbConnected || !fbDb) {
+        if (showFeedback) showToast('Connect Firebase first before pushing.', 'warn');
+        return;
+      }
+      const payload = {
+        appData,
+        shopDetails,
+        staffProfiles,
+        supplierProfiles,
+        updatedBy: DEVICE_CLIENT_ID,
+        updatedAt: new Date().toISOString()
+      };
+      fbDb.collection('safari_stores').doc(fbStoreId).set(payload)
+        .then(() => {
+          fbLastSyncTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          updateCloudSyncUI();
+          if (showFeedback) showToast('All local store data pushed to Firebase Cloud!', 'success');
+        })
+        .catch((err) => {
+          console.error('Cloud push error:', err);
+          if (showFeedback) showToast('Failed to push to cloud: ' + err.message, 'warn');
+        });
+    }
+
+    function pullCloudToLocal() {
+      if (!fbConnected || !fbDb) {
+        showToast('Connect Firebase first before pulling.', 'warn');
+        return;
+      }
+      fbDb.collection('safari_stores').doc(fbStoreId).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const remote = doc.data();
+            isApplyingRemoteSnapshot = true;
+            if (remote.appData) appData = remote.appData;
+            if (remote.shopDetails) shopDetails = { ...DEFAULT_SHOP_DETAILS, ...remote.shopDetails };
+            if (remote.staffProfiles) staffProfiles = remote.staffProfiles;
+            if (remote.supplierProfiles) supplierProfiles = remote.supplierProfiles;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+              appData, shopDetails, staffProfiles, supplierProfiles
+            }));
+            isApplyingRemoteSnapshot = false;
+            fbLastSyncTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            populateCreatorDropdowns();
+            renderCurrentView();
+            updateCloudSyncUI();
+            showToast('Pulled latest store ledger from Firebase Cloud!', 'success');
+          } else {
+            showToast('No cloud data found yet for this Store ID.', 'info');
+          }
+        })
+        .catch((err) => {
+          showToast('Failed to pull from cloud: ' + err.message, 'warn');
+        });
+    }
+
+    function disconnectFirebase() {
+      if (fbUnsubscribe) {
+        fbUnsubscribe();
+        fbUnsubscribe = null;
+      }
+      fbDb = null;
+      fbConnected = false;
+      try {
+        localStorage.removeItem(FIREBASE_CFG_KEY);
+      } catch (e) {}
+      updateCloudSyncUI();
+      showToast('Disconnected from Firebase. Switched to Local Mode.', 'info');
+    }
+
+    function initFirebaseSync() {
+      const cfg = getSavedFirebaseConfig();
+      if (cfg && cfg.apiKey && cfg.projectId) {
+        connectFirebaseInstance(cfg, false);
+      } else {
+        updateCloudSyncUI();
+      }
+    }
+
     // On Load
     window.addEventListener('DOMContentLoaded', () => {
       initAppData();
@@ -4676,6 +5073,7 @@
       populateCreatorDropdowns();
       setExpenseCategory('business');
       renderCurrentView();
+      initFirebaseSync();
     });
   </script>
 </body>

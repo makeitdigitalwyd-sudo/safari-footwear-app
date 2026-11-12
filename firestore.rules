@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Check if authenticated user is the Store Owner
+    function isOwner() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    // Helper: Check if authenticated user is an active Staff member
+    function isActiveStaff() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // User role & permission profiles (Staff cannot change role or permissions)
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isOwner());
+      allow create, delete: if isOwner();
+      allow update: if isOwner() || (
+        request.auth != null &&
+        request.auth.uid == userId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions', 'status', 'username'])
+      );
+    }
+
+    // Dedicated Staff Attendance (Owner controls all; Staff can only read their own)
+    match /attendance/{recordId} {
+      allow read: if isOwner() || (isActiveStaff() && resource.data.staffUid == request.auth.uid);
+      allow write: if isOwner();
+    }
+
+    // Daily Sessions & Locking (Only Owner can lock/unlock; Staff cannot reopen locked sessions)
+    match /sessions/{dateStr} {
+      allow read: if isOwner() || (isActiveStaff() && resource.data.status != 'locked');
+      allow write: if isOwner();
+    }
+
+    // Security Audit Logs & Reports Hub (Strictly Owner-Only)
+    match /audit_logs/{logId} {
+      allow read, write: if isOwner();
+    }
+    match /reports/{reportId} {
+      allow read, write: if isOwner();
+    }
+
+    // Store Sync Collection (Supports Safari Footwear live multi-device store sync)
+    match /safari_stores/{storeId} {
+      allow read, write: if request.auth != null || storeId == 'safari-footwear-main';
+    }
+  }
+}

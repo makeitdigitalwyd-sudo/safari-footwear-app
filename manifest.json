@@ -1,0 +1,25 @@
+{
+  "name": "SAFARI FOOTWEAR - Store POS & Daily Ledger",
+  "short_name": "Safari POS",
+  "description": "Mobile-friendly daily store management, footwear POS, attendance, and cash reconciliation for SAFARI FOOTWEAR.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#064E3B",
+  "theme_color": "#064E3B",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

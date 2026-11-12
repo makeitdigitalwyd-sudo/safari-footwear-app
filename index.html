@@ -28,6 +28,7 @@
   <!-- Firebase App & Firestore Compat SDKs for real-time multi-device cloud sync -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -80,7 +81,7 @@
     .blur-finance { filter: blur(4px); user-select: none; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-24 md:pb-12 antialiased selection:bg-safari-600 selection:text-white">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-24 md:pb-12 antialiased selection:bg-safari-600 selection:text-white">
 
   <!-- TOP HEADER -->
   <header class="bg-gradient-to-r from-safari-900 via-safari-800 to-safari-900 text-white shadow-lg sticky top-0 z-30">
@@ -134,6 +135,12 @@
             </button>
             <button onclick="setTodayDate()" class="hidden sm:inline-block px-2 py-1 text-[11px] bg-safari-700 text-emerald-100 font-bold rounded hover:bg-safari-600 transition ml-1">Today</button>
           </div>
+
+          <!-- Secure Logout Button -->
+          <button id="btnHeaderLogout" onclick="logoutCurrentUser()" class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 border border-rose-300/30 text-rose-100 hover:text-white transition text-xs font-semibold flex items-center space-x-1" title="Secure Logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span class="hidden lg:inline">Logout</span>
+          </button>
 
           <!-- Active User Badge & Switcher Button -->
           <div class="relative">
@@ -244,8 +251,208 @@
       </div>
     </div>
   </section>
+
+  <!-- ==================== SEPARATE OWNER & STAFF LOGIN PORTAL ==================== -->
+  <div id="authPortalScreen" class="fixed inset-0 bg-slate-50 z-50 hidden overflow-y-auto flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden my-auto">
+      <!-- Brand Header -->
+      <div class="bg-gradient-to-br from-safari-900 via-safari-800 to-emerald-900 text-white p-6 text-center">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg mb-3">
+          <i class="fa-solid fa-shoe-prints text-white text-2xl"></i>
+        </div>
+        <h1 class="text-xl font-black tracking-wider">SAFARI FOOTWEAR</h1>
+        <p class="text-xs text-emerald-200 mt-1">Secure Store Operations &amp; Daily Ledger</p>
+      </div>
+
+      <!-- Portal Mode Tabs: Owner vs Staff -->
+      <div class="grid grid-cols-2 border-b border-slate-200 bg-slate-50 p-1.5 gap-1.5">
+        <button type="button" id="authTabOwner" onclick="switchAuthTab('owner')" class="py-2.5 rounded-xl text-xs font-extrabold bg-white text-safari-900 shadow-sm border border-slate-200 transition flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-crown text-amber-500"></i>
+          <span>Owner Login</span>
+        </button>
+        <button type="button" id="authTabStaff" onclick="switchAuthTab('staff')" class="py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-id-badge text-emerald-600"></i>
+          <span>Staff Login</span>
+        </button>
+      </div>
+
+      <!-- OWNER LOGIN FORM -->
+      <form id="formOwnerLogin" onsubmit="handleOwnerLogin(event)" class="p-6 space-y-4 text-xs">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 flex items-start space-x-2">
+          <i class="fa-solid fa-shield-halved text-amber-600 mt-0.5"></i>
+          <span>Full administrative access: Staff management, session locking, reports, and financials.</span>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Owner Email or Username</label>
+          <input type="text" id="ownerLoginEmail" required value="owner@safarifootwear.com" placeholder="owner@safarifootwear.com" class="w-full p-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-safari-600 font-semibold">
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <label class="font-bold text-slate-700">Owner Password</label>
+            <button type="button" onclick="openForgotPasswordModal()" class="text-[11px] font-bold text-safari-700 hover:underline">Forgot Password?</button>
+          </div>
+          <div class="relative">
+            <input type="password" id="ownerLoginPassword" required placeholder="Enter owner password" class="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:outline-none focus:border-safari-600">
+            <button type="button" onclick="togglePasswordVisibility('ownerLoginPassword', this)" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Default initial password: <code class="bg-slate-100 px-1 rounded text-slate-700">admin123</code> (change in Owner Settings)</p>
+        </div>
+
+        <div id="ownerLoginError" class="hidden p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-semibold text-[11px]"></div>
+
+        <button type="submit" class="w-full bg-safari-800 hover:bg-safari-900 text-white font-extrabold py-3 rounded-xl shadow-md transition text-sm">
+          Sign In to Owner Dashboard
+        </button>
+      </form>
+
+      <!-- STAFF LOGIN FORM -->
+      <form id="formStaffLogin" onsubmit="handleStaffLogin(event)" class="hidden p-6 space-y-4 text-xs">
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-[11px] text-emerald-900 flex items-start space-x-2">
+          <i class="fa-solid fa-user-lock text-emerald-600 mt-0.5"></i>
+          <span>Log in using the username &amp; password generated by your Store Owner.</span>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Assigned Staff Username</label>
+          <input type="text" id="staffLoginUsername" required placeholder="e.g. rahul, anand, priya" class="w-full p-2.5 border border-slate-300 rounded-xl focus:outline-none focus:border-safari-600 font-semibold lowercase">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Staff Password</label>
+          <div class="relative">
+            <input type="password" id="staffLoginPassword" required placeholder="Enter assigned password" class="w-full p-2.5 pr-10 border border-slate-300 rounded-xl focus:outline-none focus:border-safari-600">
+            <button type="button" onclick="togglePasswordVisibility('staffLoginPassword', this)" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-700">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1">Initial demo staff password: <code class="bg-slate-100 px-1 rounded text-slate-700">staff123</code></p>
+        </div>
+
+        <div id="staffLoginError" class="hidden p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-semibold text-[11px]"></div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3 rounded-xl shadow-md transition text-sm">
+          Sign In to Staff Portal
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== DEDICATED STAFF PORTAL (RESTRICTED ACCESS) ==================== -->
+  <section id="staffPortalView" class="hidden max-w-3xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+    <!-- Staff Header Card -->
+    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div id="spAvatar" class="w-11 h-11 rounded-full bg-safari-800 text-white font-extrabold flex items-center justify-center text-sm shadow">RM</div>
+        <div>
+          <div class="text-sm font-extrabold text-slate-900" id="spStaffName">Rahul M.</div>
+          <div class="text-[11px] text-slate-500" id="spStaffRole">Counter 1 - Senior Sales • @rahul</div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span id="spSessionBadge" class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          SESSION OPEN
+        </span>
+        <button onclick="logoutCurrentUser()" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i>Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- Staff Tab 1: Today's Entry & Review -->
+    <div id="spTab-entry" class="space-y-4">
+      <!-- Locked State Notice (Shown when Owner locks the session) -->
+      <div id="spLockedNotice" class="hidden bg-white rounded-2xl p-8 border border-slate-200 shadow-sm text-center space-y-3">
+        <div class="w-14 h-14 mx-auto rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-2xl">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <h3 class="text-base font-extrabold text-slate-900">Today's Session is Locked</h3>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto" id="spLockedByMsg">
+          The Store Owner has reviewed and locked today's session. All daily business entries are now archived and hidden from the Staff Portal.
+        </p>
+      </div>
+
+      <!-- Open Session Entry Workspace -->
+      <div id="spOpenWorkspace" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <button onclick="openNewSaleModal()" id="spBtnAddSale" class="bg-safari-800 hover:bg-safari-900 text-white p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-1.5 transition active:scale-95">
+            <i class="fa-solid fa-plus-circle text-2xl text-amber-300"></i>
+            <span class="text-xs font-extrabold">Add Footwear Sale</span>
+          </button>
+          <button onclick="openNewExpenseModal()" id="spBtnAddExpense" class="bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-col items-center justify-center space-y-1.5 transition active:scale-95">
+            <i class="fa-solid fa-receipt text-2xl text-rose-500"></i>
+            <span class="text-xs font-extrabold">Add Daily Expense</span>
+          </button>
+        </div>
+
+        <!-- Current Day Entries Review (Own entries only while open) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-extrabold text-slate-900">Today's Submitted Entries</h3>
+              <p class="text-[11px] text-slate-500">Review your entries before submitting for Owner End-of-Day lock.</p>
+            </div>
+            <button onclick="staffSubmitDaySession()" id="spBtnSubmitDay" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-sm transition">
+              <i class="fa-solid fa-paper-plane mr-1"></i>Save &amp; Submit
+            </button>
+          </div>
+          <div id="spTodayEntriesList" class="divide-y divide-slate-100 text-xs">
+            <!-- Dynamically populated for open session only -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Staff Tab 2: My Attendance (Read-Only) -->
+    <div id="spTab-attendance" class="hidden bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <div>
+          <h3 class="text-sm font-extrabold text-slate-900">My Attendance Record</h3>
+          <p class="text-[11px] text-slate-500">Attendance is managed and verified by the Store Owner (Read-Only).</p>
+        </div>
+        <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded-lg font-bold"><i class="fa-solid fa-lock mr-1"></i>Read-Only</span>
+      </div>
+      <div id="spMyAttendanceCard" class="space-y-2 text-xs"></div>
+    </div>
+
+    <!-- Staff Tab 3: My Profile -->
+    <div id="spTab-profile" class="hidden bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+      <div class="flex items-center space-x-3 border-b border-slate-100 pb-3">
+        <div id="spProfAvatar" class="w-14 h-14 rounded-2xl bg-safari-800 text-white font-black text-lg flex items-center justify-center">RM</div>
+        <div>
+          <h3 id="spProfName" class="text-base font-extrabold text-slate-900">Rahul M.</h3>
+          <p id="spProfRole" class="text-xs text-slate-500">Counter 1 - Senior Sales</p>
+        </div>
+      </div>
+      <div id="spProfDetails" class="grid grid-cols-2 gap-3 text-xs"></div>
+      <div class="pt-2 border-t border-slate-100">
+        <button onclick="openChangeOwnPasswordModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-xl text-xs transition">
+          <i class="fa-solid fa-key mr-1.5 text-amber-600"></i>Change My Password
+        </button>
+      </div>
+    </div>
+
+    <!-- Staff Mobile Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 shadow-2xl z-30 flex items-center justify-around">
+      <button onclick="switchStaffTab('entry')" id="spNav-entry" class="flex flex-col items-center text-safari-800 font-bold text-xs">
+        <i class="fa-solid fa-pen-to-square text-base mb-0.5"></i>
+        <span>Today's Entry</span>
+      </button>
+      <button onclick="switchStaffTab('attendance')" id="spNav-attendance" class="flex flex-col items-center text-slate-500 font-semibold text-xs">
+        <i class="fa-solid fa-calendar-check text-base mb-0.5"></i>
+        <span>My Attendance</span>
+      </button>
+      <button onclick="switchStaffTab('profile')" id="spNav-profile" class="flex flex-col items-center text-slate-500 font-semibold text-xs">
+        <i class="fa-solid fa-user text-base mb-0.5"></i>
+        <span>My Profile</span>
+      </button>
+    </nav>
+  </section>
   <!-- MAIN CONTAINER -->
-  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-3">
+  <main id="ownerMainContainer" class="max-w-7xl mx-auto px-3 sm:px-6 py-3">
 
     <!-- VIEW 1: DASHBOARD -->
     <div id="view-dashboard" class="space-y-4">
@@ -285,6 +492,36 @@
           </div>
         </div>
         <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded uppercase hidden sm:inline">Protected</span>
+      </div>
+
+      <!-- OWNER DAILY SESSION LOCK & AUDIT CONTROL -->
+      <div id="ownerSessionControlCard" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center space-x-3">
+          <div id="ownerSessionIconBox" class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base font-bold flex-shrink-0">
+            <i class="fa-solid fa-lock-open"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-extrabold text-slate-900">Daily Session Control:</span>
+              <span id="ownerSessionStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 uppercase">OPEN</span>
+            </div>
+            <p id="ownerSessionMetaText" class="text-[11px] text-slate-500 mt-0.5">Staff can enter &amp; review today's data until you lock this session.</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btnOwnerLockSession" onclick="openSessionLockConfirmModal('lock')" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-lock text-amber-400"></i>
+            <span>Confirm &amp; Lock Day</span>
+          </button>
+          <button id="btnOwnerUnlockSession" onclick="openSessionLockConfirmModal('unlock')" class="hidden bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-unlock"></i>
+            <span>Unlock Session</span>
+          </button>
+          <button onclick="openChangeOwnPasswordModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center space-x-1.5" title="Change Owner Password">
+            <i class="fa-solid fa-key text-safari-700"></i>
+            <span>Owner Password</span>
+          </button>
+        </div>
       </div>
 
       <!-- KEY METRIC CARDS -->
@@ -1103,6 +1340,22 @@
           <!-- Dynamically populated pending item cards with 1-click Confirm button -->
         </div>
       </div>
+
+      <!-- SECURITY AUDIT LOGS (Owner Only) -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900 flex items-center">
+              <i class="fa-solid fa-shield-halved text-safari-700 mr-2"></i>
+              Security &amp; Session Audit Log
+            </h3>
+            <p class="text-[11px] text-slate-500">Tracks session locks, unlocks, staff account changes, and password resets (passwords are never logged).</p>
+          </div>
+        </div>
+        <div id="ownerAuditLogList" class="space-y-2 max-h-64 overflow-y-auto text-xs">
+          <!-- Dynamically populated audit logs -->
+        </div>
+      </div>
     </div>
 
   </main>
@@ -1283,6 +1536,67 @@
             </div>
           </div>
 
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Assigned Username <span class="text-rose-500">*</span></label>
+              <input type="text" id="staffInputUsername" required placeholder="e.g. sujith" class="w-full p-1.5 border rounded lowercase font-mono">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Joining Date</label>
+              <input type="date" id="staffInputJoinDate" value="2026-01-01" class="w-full p-1.5 border rounded">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Profile Photo (Optional Upload)</label>
+            <input type="file" id="staffInputPhotoFile" accept="image/*" onchange="previewStaffPhotoUpload(this)" class="w-full text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-safari-50 file:text-safari-800">
+            <input type="hidden" id="staffInputPhotoData" value="">
+          </div>
+
+          <!-- Staff Permissions -->
+          <div class="bg-white border border-slate-200 rounded-lg p-2.5 space-y-1.5">
+            <span class="block font-bold text-slate-700 text-[11px]">Staff Portal Permissions:</span>
+            <div class="flex flex-wrap gap-3 text-[11px]">
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="permCanAddSales" checked class="rounded text-safari-700">
+                <span>Add Daily Sales</span>
+              </label>
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="permCanAddExpenses" checked class="rounded text-safari-700">
+                <span>Add Daily Expenses</span>
+              </label>
+              <label class="flex items-center space-x-1.5 cursor-pointer">
+                <input type="checkbox" id="permCanPrint" checked class="rounded text-safari-700">
+                <span>Print Receipts</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Initial Password (for New Staff) -->
+          <div id="staffNewPasswordBox" class="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-bold text-amber-950 text-[11px]">Initial Login Password</label>
+              <button type="button" onclick="autoGeneratePasswordForInput('staffInputPassword')" class="text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-bold px-2 py-0.5 rounded">
+                <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Auto-Generate
+              </button>
+            </div>
+            <div class="flex space-x-1.5">
+              <div class="relative flex-1">
+                <input type="password" id="staffInputPassword" placeholder="Min 8 chars (or click Auto-Generate)" class="w-full p-1.5 pr-8 border border-amber-300 rounded font-mono text-xs bg-white">
+                <button type="button" onclick="togglePasswordVisibility('staffInputPassword', this)" class="absolute right-2 top-1.5 text-slate-400 hover:text-slate-700">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+              <button type="button" onclick="copyFieldValue('staffInputPassword')" class="px-2.5 py-1.5 bg-white border border-amber-300 rounded text-amber-900 font-bold text-[11px]" title="Copy Password">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+            </div>
+            <label class="flex items-center space-x-1.5 text-[11px] text-amber-900 cursor-pointer">
+              <input type="checkbox" id="staffInputForceChange" checked class="rounded text-amber-600">
+              <span>Force password change on next login</span>
+            </label>
+          </div>
+
           <div class="pt-1">
             <button type="submit" class="w-full bg-safari-700 hover:bg-safari-800 text-white font-bold py-2 rounded-lg text-xs transition">
               Save Staff Profile
@@ -1375,6 +1689,12 @@
           </div>
         </div>
 
+        <div class="pt-1 no-print" id="staffStmtOwnerResetWrap">
+          <button type="button" onclick="openResetStaffPasswordModal(currentStaffStatementId)" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold py-2 rounded-lg text-xs flex items-center justify-center space-x-1.5 transition">
+            <i class="fa-solid fa-key text-amber-600"></i>
+            <span>Reset Staff Password</span>
+          </button>
+        </div>
         <div class="flex items-center space-x-2 pt-2 no-print">
           <button onclick="downloadStaffStatementPdf()" class="flex-1 bg-safari-700 hover:bg-safari-800 text-white font-bold py-2 rounded-lg text-xs flex items-center justify-center space-x-1.5">
             <i class="fa-solid fa-file-pdf"></i>
@@ -2158,6 +2478,187 @@
     </div>
   </div>
 
+  <!-- 14. RESET STAFF PASSWORD MODAL (OWNER ONLY) -->
+  <div id="modalResetStaffPassword" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 my-auto">
+      <div class="bg-gradient-to-r from-amber-700 to-amber-800 text-white px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-key text-amber-200"></i>
+          <h3 class="font-extrabold text-sm">Reset Staff Password</h3>
+        </div>
+        <button onclick="closeModal('modalResetStaffPassword')" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <form onsubmit="submitResetStaffPassword(event)" class="p-4 space-y-3 text-xs">
+        <input type="hidden" id="resetPwdStaffId" value="">
+        <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <div class="text-slate-500 text-[10px]">Staff Member:</div>
+          <div id="resetPwdStaffLabel" class="font-extrabold text-slate-900 text-sm">Rahul M. (@rahul)</div>
+          <div class="text-[10px] text-amber-800 mt-1">Resetting immediately invalidates their previous password and active sessions.</div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-bold text-slate-700">New Password <span class="text-rose-500">*</span></label>
+            <button type="button" onclick="autoGeneratePasswordForInput('resetStaffNewPwd')" class="text-[10px] bg-amber-600 hover:bg-amber-700 text-white font-bold px-2 py-0.5 rounded">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Generate Strong
+            </button>
+          </div>
+          <div class="flex space-x-1.5">
+            <div class="relative flex-1">
+              <input type="password" id="resetStaffNewPwd" required minlength="8" placeholder="Min 8 chars (upper, lower, number)" class="w-full p-2 pr-8 border border-slate-300 rounded-lg font-mono">
+              <button type="button" onclick="togglePasswordVisibility('resetStaffNewPwd', this)" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <button type="button" onclick="copyFieldValue('resetStaffNewPwd')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg text-slate-700 font-bold" title="Copy Password">
+              <i class="fa-solid fa-copy"></i>
+            </button>
+          </div>
+        </div>
+
+        <label class="flex items-center space-x-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="resetStaffForceChange" checked class="rounded text-amber-600">
+          <span>Force staff member to change password on next login</span>
+        </label>
+
+        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-2.5 rounded-xl shadow transition">
+          Reset Password &amp; Invalidate Old Sessions
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 15. CHANGE OWN PASSWORD MODAL (OWNER & STAFF) -->
+  <div id="modalChangeOwnPassword" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 my-auto">
+      <div class="bg-gradient-to-r from-safari-800 to-safari-900 text-white px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-shield-halved text-amber-300"></i>
+          <h3 id="changePwdModalTitle" class="font-extrabold text-sm">Change Password</h3>
+        </div>
+        <button id="btnCloseChangeOwnPwd" onclick="closeModal('modalChangeOwnPassword')" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <form onsubmit="submitChangeOwnPassword(event)" class="p-4 space-y-3 text-xs">
+        <div id="forcedPwdBanner" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-semibold">
+          Your password was reset by the Owner. Please set a new personal password to continue.
+        </div>
+
+        <div id="currentPwdFieldWrap">
+          <label class="block font-bold text-slate-700 mb-1">Current Password <span class="text-rose-500">*</span></label>
+          <div class="relative">
+            <input type="password" id="ownCurrentPassword" placeholder="Verify current password" class="w-full p-2 pr-8 border border-slate-300 rounded-lg">
+            <button type="button" onclick="togglePasswordVisibility('ownCurrentPassword', this)" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">New Password <span class="text-rose-500">*</span></label>
+          <div class="relative">
+            <input type="password" id="ownNewPassword" required oninput="updatePasswordStrengthUI(this.value)" placeholder="Min 8 chars, 1 uppercase, 1 number" class="w-full p-2 pr-8 border border-slate-300 rounded-lg">
+            <button type="button" onclick="togglePasswordVisibility('ownNewPassword', this)" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <div id="pwdStrengthMeter" class="mt-1.5 text-[10px] font-bold text-slate-500">Strength: Enter at least 8 characters with uppercase &amp; number</div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Confirm New Password <span class="text-rose-500">*</span></label>
+          <div class="relative">
+            <input type="password" id="ownConfirmPassword" required placeholder="Re-enter new password" class="w-full p-2 pr-8 border border-slate-300 rounded-lg">
+            <button type="button" onclick="togglePasswordVisibility('ownConfirmPassword', this)" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="ownPwdErrorMsg" class="hidden p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg font-semibold text-[11px]"></div>
+
+        <button type="submit" class="w-full bg-safari-700 hover:bg-safari-800 text-white font-extrabold py-2.5 rounded-xl shadow transition">
+          Update Password Securely
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 16. FORGOT OWNER PASSWORD MODAL -->
+  <div id="modalForgotPassword" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 my-auto">
+      <div class="bg-gradient-to-r from-safari-800 to-safari-900 text-white px-4 py-3 flex items-center justify-between">
+        <h3 class="font-extrabold text-sm">Owner Password Recovery</h3>
+        <button onclick="closeModal('modalForgotPassword')" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <form onsubmit="submitForgotPassword(event)" class="p-4 space-y-3 text-xs">
+        <p class="text-slate-600">Enter your registered Owner email address to receive a secure password reset link via Firebase Authentication.</p>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Registered Owner Email</label>
+          <input type="email" id="forgotOwnerEmail" required placeholder="owner@safarifootwear.com" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div id="forgotPwdFeedback" class="hidden p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-[11px] font-semibold"></div>
+        <button type="submit" class="w-full bg-safari-800 hover:bg-safari-900 text-white font-extrabold py-2.5 rounded-xl shadow transition">
+          Send Reset Link
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 17. SESSION LOCK / UNLOCK CONFIRMATION MODAL -->
+  <div id="modalSessionLockConfirm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 my-auto">
+      <div class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+        <h3 id="sessionLockModalTitle" class="font-extrabold text-sm">Confirm End-of-Day Session Lock</h3>
+        <button onclick="closeModal('modalSessionLockConfirm')" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="p-4 space-y-3 text-xs">
+        <p id="sessionLockModalDesc" class="text-slate-700 leading-relaxed">
+          Locking this day's session makes all entries read-only and immediately hides today's business data from the Staff Portal.
+        </p>
+        <div id="sessionUnlockReasonWrap" class="hidden">
+          <label class="block font-bold text-slate-700 mb-1">Reason for Unlocking (Recorded in Audit Log) <span class="text-rose-500">*</span></label>
+          <input type="text" id="sessionUnlockReasonInput" placeholder="e.g. Correcting bill #SF-104 payment mode" class="w-full p-2 border border-slate-300 rounded-lg">
+        </div>
+        <div class="flex space-x-2 pt-1">
+          <button type="button" onclick="closeModal('modalSessionLockConfirm')" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+          <button type="button" id="btnConfirmSessionLockAction" onclick="executeSessionLockAction()" class="flex-1 py-2 bg-safari-800 hover:bg-safari-900 text-white font-extrabold rounded-xl shadow">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 18. PERMANENT DELETE STAFF CONFIRMATION MODAL -->
+  <div id="modalDeleteStaffConfirm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 my-auto">
+      <div class="bg-rose-700 text-white px-4 py-3 flex items-center justify-between">
+        <h3 class="font-extrabold text-sm">Permanently Delete Staff Account</h3>
+        <button onclick="closeModal('modalDeleteStaffConfirm')" class="text-white/80 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="p-4 space-y-3 text-xs">
+        <input type="hidden" id="deleteStaffTargetId" value="">
+        <p class="text-slate-700">Are you sure you want to permanently delete <strong id="deleteStaffTargetName">this staff account</strong>?</p>
+        <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] text-emerald-900">
+          <i class="fa-solid fa-shield-check mr-1 text-emerald-600"></i>
+          <strong>Historical Data Preserved:</strong> All past sales, expenses, and attendance records created by this staff member will remain safely intact.
+        </div>
+        <div class="flex space-x-2 pt-1">
+          <button type="button" onclick="closeModal('modalDeleteStaffConfirm')" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+          <button type="button" onclick="confirmPermanentDeleteStaff()" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl shadow">Delete Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="fixed top-16 right-4 z-50 space-y-2 pointer-events-none"></div>
 
@@ -2178,10 +2679,10 @@
     };
 
     const DEFAULT_STAFF_PROFILES = [
-      { id: 'u1', name: 'Rajesh Kumar', role: 'owner', email: 'owner@safarifootwear.com', phone: '9847000001', roleLabel: 'Store Owner', salary: 0, initials: 'RK', status: 'active' },
-      { id: 'u2', name: 'Rahul M.', role: 'staff', email: 'rahul@safarifootwear.com', phone: '9847011112', roleLabel: 'Counter 1 - Senior Sales', salary: 18000, initials: 'RM', status: 'active' },
-      { id: 'u3', name: 'Anand V.', role: 'staff', email: 'anand@safarifootwear.com', phone: '9847022223', roleLabel: 'Counter 2 - Billing & Stock', salary: 16000, initials: 'AV', status: 'active' },
-      { id: 'u4', name: 'Priya S.', role: 'staff', email: 'priya@safarifootwear.com', phone: '9847033334', roleLabel: 'Floor & Stock Assistant', salary: 14000, initials: 'PS', status: 'active' }
+      { id: 'u1', name: 'Rajesh Kumar', username: 'owner', role: 'owner', email: 'owner@safarifootwear.com', phone: '9847000001', roleLabel: 'Store Owner', salary: 0, initials: 'RK', status: 'active', joinDate: '2024-01-01', photoData: '', passwordHash: '', passwordVersion: 1, mustChangePassword: false, permissions: { canAddSales: true, canAddExpenses: true, canPrint: true } },
+      { id: 'u2', name: 'Rahul M.', username: 'rahul', role: 'staff', email: 'rahul@safarifootwear.com', phone: '9847011112', roleLabel: 'Counter 1 - Senior Sales', salary: 18000, initials: 'RM', status: 'active', joinDate: '2024-06-15', photoData: '', passwordHash: '', passwordVersion: 1, mustChangePassword: false, permissions: { canAddSales: true, canAddExpenses: true, canPrint: true } },
+      { id: 'u3', name: 'Anand V.', username: 'anand', role: 'staff', email: 'anand@safarifootwear.com', phone: '9847022223', roleLabel: 'Counter 2 - Billing & Stock', salary: 16000, initials: 'AV', status: 'active', joinDate: '2025-02-01', photoData: '', passwordHash: '', passwordVersion: 1, mustChangePassword: false, permissions: { canAddSales: true, canAddExpenses: true, canPrint: true } },
+      { id: 'u4', name: 'Priya S.', username: 'priya', role: 'staff', email: 'priya@safarifootwear.com', phone: '9847033334', roleLabel: 'Floor & Stock Assistant', salary: 14000, initials: 'PS', status: 'active', joinDate: '2025-08-10', photoData: '', passwordHash: '', passwordVersion: 1, mustChangePassword: false, permissions: { canAddSales: true, canAddExpenses: false, canPrint: true } }
     ];
 
     const DEFAULT_SUPPLIER_PROFILES = [
@@ -2221,6 +2722,11 @@
     let activeExpenseSubTab = 'daily';
     let activeReportSubTab = 'daily';
     let approvalFilterType = 'all';
+    const AUTH_SESSION_KEY = 'safari_auth_session_v1';
+    let authSession = null;
+    let auditLogs = [];
+    let pendingSessionLockMode = 'lock';
+    let currentStaffPortalTab = 'entry';
 
     // Chart instances
     let paymentChartInstance = null;
@@ -2236,6 +2742,7 @@
       return {
         // Today (2026-11-11)
         '2026-11-11': {
+          session: { status: 'open', submittedBy: '', submittedAt: '', lockedBy: '', lockedAt: '', unlockedBy: '', unlockedAt: '', unlockReason: '' },
           opening: { cash: 5298, upi: 24598, setBy: 'Rajesh Kumar', time: '09:15 AM', confirmed: true },
           shopHours: { status: 'open', openedBy: 'Rahul M.', openTime: '09:20 AM', closedBy: '', closeTime: '', confirmed: true },
           sales: [
@@ -2328,6 +2835,7 @@
           if (parsed.shopDetails) shopDetails = { ...DEFAULT_SHOP_DETAILS, ...parsed.shopDetails };
           if (parsed.staffProfiles) staffProfiles = parsed.staffProfiles;
           if (parsed.supplierProfiles) supplierProfiles = parsed.supplierProfiles;
+          if (parsed.auditLogs) auditLogs = parsed.auditLogs;
         } else {
           appData = getInitialSeedData();
           saveAppData();
@@ -2344,7 +2852,8 @@
           appData,
           shopDetails,
           staffProfiles,
-          supplierProfiles
+          supplierProfiles,
+          auditLogs
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         if (fbConnected && fbDb && !isApplyingRemoteSnapshot) {
@@ -2761,6 +3270,7 @@
       }
 
       // Render active view
+      renderOwnerSessionControlAndAudit(data);
       renderDashboard(calcs, data);
       if (activeTab === 'sales') renderSalesTable();
       if (activeTab === 'expenses') renderExpensesAndSuppliers();
@@ -4101,6 +4611,17 @@
                 <button onclick="editStaffProfile('${s.id}')" class="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded text-xs" title="Edit Profile">
                   <i class="fa-solid fa-pen-to-square"></i>
                 </button>
+                ${s.role !== 'owner' ? `
+                  <button onclick="openResetStaffPasswordModal('${s.id}')" class="p-1.5 bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 rounded text-xs" title="Reset Password">
+                    <i class="fa-solid fa-key"></i>
+                  </button>
+                  <button onclick="toggleStaffActiveStatus('${s.id}')" class="p-1.5 ${s.status === 'active' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-700'} rounded text-xs" title="${s.status === 'active' ? 'Deactivate' : 'Activate'}">
+                    <i class="fa-solid ${s.status === 'active' ? 'fa-user-slash' : 'fa-user-check'}"></i>
+                  </button>
+                  <button onclick="openDeleteStaffConfirmModal('${s.id}')" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded text-xs" title="Delete Permanently">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : ''}
               ` : ''}
             </div>
           </div>
@@ -4123,7 +4644,7 @@
       document.getElementById('staffInputStatus').value = s.status || 'active';
     }
 
-    function submitStaffProfile(e) {
+    async function submitStaffProfile(e) {
       e.preventDefault();
       if (currentUser.role !== 'owner') {
         showToast('Only Owner can add or modify staff salary and profiles.', 'warn');
@@ -4136,6 +4657,16 @@
       const email = document.getElementById('staffInputEmail').value.trim();
       const salary = Number(document.getElementById('staffInputSalary').value || 0);
       const status = document.getElementById('staffInputStatus').value;
+      const username = (document.getElementById('staffInputUsername')?.value || '').trim().toLowerCase() || name.toLowerCase().split(' ')[0];
+      const joinDate = document.getElementById('staffInputJoinDate')?.value || '2026-01-01';
+      const photoData = document.getElementById('staffInputPhotoData')?.value || '';
+      const permissions = {
+        canAddSales: document.getElementById('permCanAddSales')?.checked ?? true,
+        canAddExpenses: document.getElementById('permCanAddExpenses')?.checked ?? true,
+        canPrint: document.getElementById('permCanPrint')?.checked ?? true
+      };
+      const initPwd = document.getElementById('staffInputPassword')?.value || '';
+      const forceChange = document.getElementById('staffInputForceChange')?.checked ?? true;
       const role = roleLabel.includes('Owner') ? 'owner' : 'staff';
       const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
@@ -4143,10 +4674,19 @@
         const item = staffProfiles.find(s => s.id === editId);
         if (item) {
           item.name = name; item.roleLabel = roleLabel; item.phone = phone; item.email = email; item.salary = salary; item.status = status; item.initials = initials; item.role = role;
+          item.username = username; item.joinDate = joinDate; item.permissions = permissions;
+          if (photoData) item.photoData = photoData;
+          addAuditLog('STAFF_UPDATED', `Updated staff profile for ${name} (@${username})`);
         }
       } else {
         const newId = `u${Date.now().toString().slice(-4)}`;
-        staffProfiles.push({ id: newId, name, roleLabel, phone, email, salary, status, initials, role });
+        const pwdToHash = initPwd || 'Staff@1234';
+        const hashed = await hashPassword(pwdToHash, newId);
+        staffProfiles.push({
+          id: newId, name, username, roleLabel, phone, email, salary, status, initials, role,
+          joinDate, photoData, permissions, passwordHash: hashed, passwordVersion: 1, mustChangePassword: forceChange
+        });
+        addAuditLog('STAFF_CREATED', `Created new staff account ${name} (@${username})`);
       }
 
       saveAppData();
@@ -4404,6 +4944,10 @@
 
     function submitNewSale(e) {
       e.preventDefault();
+      if (currentUser.role === 'staff') {
+        if (isDateSessionLocked(currentDate)) { showToast('Session is locked by Owner. Entry blocked.', 'warn'); return; }
+        if (currentUser.permissions && !currentUser.permissions.canAddSales) { showToast('Permission denied: Sales entry disabled for your account.', 'warn'); return; }
+      }
       const data = ensureDateData(currentDate);
       const productName = document.getElementById('saleProductName').value.trim();
       const artNo = document.getElementById('saleArtNo').value.trim();
@@ -4523,6 +5067,10 @@
 
     function submitNewExpense(e) {
       e.preventDefault();
+      if (currentUser.role === 'staff') {
+        if (isDateSessionLocked(currentDate)) { showToast('Session is locked by Owner. Entry blocked.', 'warn'); return; }
+        if (currentUser.permissions && !currentUser.permissions.canAddExpenses) { showToast('Permission denied: Expense entry disabled for your account.', 'warn'); return; }
+      }
       const data = ensureDateData(currentDate);
       const category = document.getElementById('expenseCategoryInput').value;
       const description = document.getElementById('expenseDescription').value.trim();
@@ -4720,6 +5268,7 @@
     }
 
     function setStaffAttendanceStatus(staffId, status) {
+      if (!requireOwnerRole()) return;
       const data = ensureDateData(currentDate);
       if (!data.attendance) data.attendance = {};
       if (!data.attendance[staffId]) data.attendance[staffId] = { checkIn: '09:30 AM', checkOut: '', markedBy: currentUser.name };
@@ -4951,10 +5500,12 @@
               if (remote.shopDetails) shopDetails = { ...DEFAULT_SHOP_DETAILS, ...remote.shopDetails };
               if (remote.staffProfiles) staffProfiles = remote.staffProfiles;
               if (remote.supplierProfiles) supplierProfiles = remote.supplierProfiles;
+              if (remote.auditLogs) auditLogs = remote.auditLogs;
 
               localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                appData, shopDetails, staffProfiles, supplierProfiles
+                appData, shopDetails, staffProfiles, supplierProfiles, auditLogs
               }));
+              validateActiveAuthSession();
               isApplyingRemoteSnapshot = false;
               populateCreatorDropdowns();
               renderCurrentView();
@@ -5011,6 +5562,7 @@
         shopDetails,
         staffProfiles,
         supplierProfiles,
+        auditLogs,
         updatedBy: DEVICE_CLIENT_ID,
         updatedAt: new Date().toISOString()
       };
@@ -5081,6 +5633,687 @@
       }
     }
 
+    // ==================== AUTH, PASSWORD, SESSION LOCK & STAFF PORTAL ENGINE ====================
+    async function hashPassword(plainText, salt) {
+      const input = `safari_salt_${salt}_${plainText}`;
+      if (window.crypto && window.crypto.subtle) {
+        const enc = new TextEncoder().encode(input);
+        const buf = await window.crypto.subtle.digest('SHA-256', enc);
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+      // Fallback hash if crypto.subtle unavailable
+      let h = 5381;
+      for (let i = 0; i < input.length; i++) h = ((h << 5) + h) + input.charCodeAt(i);
+      return 'fb_' + (h >>> 0).toString(16);
+    }
+
+    async function ensureDefaultPasswordHashes() {
+      let changed = false;
+      for (const u of staffProfiles) {
+        if (!u.passwordHash) {
+          const defaultPwd = u.role === 'owner' ? 'admin123' : 'staff123';
+          u.passwordHash = await hashPassword(defaultPwd, u.id);
+          if (!u.passwordVersion) u.passwordVersion = 1;
+          changed = true;
+        }
+        if (!u.username) {
+          u.username = u.name.toLowerCase().split(' ')[0].replace(/[^a-z0-9]/g, '');
+          changed = true;
+        }
+        if (!u.permissions) {
+          u.permissions = { canAddSales: true, canAddExpenses: true, canPrint: true };
+          changed = true;
+        }
+      }
+      if (changed) saveAppData();
+    }
+
+    function addAuditLog(action, details) {
+      const entry = {
+        id: 'AUD-' + Date.now().toString().slice(-6),
+        action,
+        details,
+        actorName: currentUser ? currentUser.name : 'System',
+        actorRole: currentUser ? currentUser.role : 'system',
+        timestamp: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+      };
+      auditLogs.unshift(entry);
+      if (auditLogs.length > 200) auditLogs = auditLogs.slice(0, 200);
+      saveAppData();
+    }
+
+    function requireOwnerRole() {
+      if (!currentUser || currentUser.role !== 'owner') {
+        showToast('Access Denied: Store Owner authorization required.', 'warn');
+        return false;
+      }
+      return true;
+    }
+
+    function isDateSessionLocked(dateStr) {
+      const data = ensureDateData(dateStr);
+      return data.session && data.session.status === 'locked';
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const inp = document.getElementById(inputId);
+      if (!inp) return;
+      const icon = btn.querySelector('i');
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        if (icon) icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        inp.type = 'password';
+        if (icon) icon.className = 'fa-solid fa-eye';
+      }
+    }
+
+    function validatePasswordStrength(pwd) {
+      if (!pwd || pwd.length < 8) return { ok: false, msg: 'Password must be at least 8 characters long.' };
+      if (!/[A-Z]/.test(pwd)) return { ok: false, msg: 'Include at least 1 uppercase letter.' };
+      if (!/[0-9]/.test(pwd)) return { ok: false, msg: 'Include at least 1 number.' };
+      return { ok: true, msg: 'Strong password' };
+    }
+
+    function updatePasswordStrengthUI(pwd) {
+      const el = document.getElementById('pwdStrengthMeter');
+      if (!el) return;
+      const res = validatePasswordStrength(pwd);
+      el.innerText = 'Strength: ' + res.msg;
+      el.className = res.ok ? 'mt-1.5 text-[10px] font-bold text-emerald-700' : 'mt-1.5 text-[10px] font-bold text-amber-700';
+    }
+
+    function autoGeneratePasswordForInput(inputId) {
+      const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const lower = 'abcdefghijkmnpqrstuvwxyz';
+      const nums = '23456789';
+      const syms = '@#$!';
+      let pwd = upper[Math.floor(Math.random() * upper.length)] +
+                lower[Math.floor(Math.random() * lower.length)] +
+                nums[Math.floor(Math.random() * nums.length)] +
+                syms[Math.floor(Math.random() * syms.length)];
+      const all = upper + lower + nums;
+      for (let i = 0; i < 6; i++) pwd += all[Math.floor(Math.random() * all.length)];
+      const inp = document.getElementById(inputId);
+      if (inp) {
+        inp.value = pwd;
+        inp.type = 'text';
+      }
+      showToast('Strong password generated! Copy it before saving.', 'info');
+    }
+
+    function copyFieldValue(inputId) {
+      const inp = document.getElementById(inputId);
+      if (!inp || !inp.value) return;
+      navigator.clipboard?.writeText(inp.value);
+      showToast('Password copied to clipboard!', 'success');
+    }
+
+    function switchAuthTab(mode) {
+      const tabOwner = document.getElementById('authTabOwner');
+      const tabStaff = document.getElementById('authTabStaff');
+      const formOwner = document.getElementById('formOwnerLogin');
+      const formStaff = document.getElementById('formStaffLogin');
+      if (mode === 'owner') {
+        tabOwner.className = 'py-2.5 rounded-xl text-xs font-extrabold bg-white text-safari-900 shadow-sm border border-slate-200 transition flex items-center justify-center space-x-1.5';
+        tabStaff.className = 'py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center justify-center space-x-1.5';
+        formOwner.classList.remove('hidden');
+        formStaff.classList.add('hidden');
+      } else {
+        tabStaff.className = 'py-2.5 rounded-xl text-xs font-extrabold bg-white text-safari-900 shadow-sm border border-slate-200 transition flex items-center justify-center space-x-1.5';
+        tabOwner.className = 'py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 transition flex items-center justify-center space-x-1.5';
+        formStaff.classList.remove('hidden');
+        formOwner.classList.add('hidden');
+      }
+    }
+
+    async function handleOwnerLogin(e) {
+      e.preventDefault();
+      await ensureDefaultPasswordHashes();
+      const loginId = document.getElementById('ownerLoginEmail').value.trim().toLowerCase();
+      const pwd = document.getElementById('ownerLoginPassword').value;
+      const errEl = document.getElementById('ownerLoginError');
+      errEl.classList.add('hidden');
+
+      const owner = staffProfiles.find(u => u.role === 'owner' && (u.email.toLowerCase() === loginId || (u.username && u.username.toLowerCase() === loginId)));
+      if (!owner) {
+        errEl.innerText = 'Invalid owner credentials.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      const hashed = await hashPassword(pwd, owner.id);
+      let valid = (hashed === owner.passwordHash);
+
+      // Also attempt Firebase Auth sign-in if available & configured
+      if (!valid && typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
+        try {
+          await firebase.app().auth().signInWithEmailAndPassword(owner.email, pwd);
+          valid = true;
+        } catch (fbErr) {}
+      }
+
+      if (!valid) {
+        errEl.innerText = 'Invalid owner credentials. Please try again.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      establishAuthSession(owner);
+      showToast(`Welcome back, ${owner.name} (Owner)!`, 'success');
+    }
+
+    async function handleStaffLogin(e) {
+      e.preventDefault();
+      await ensureDefaultPasswordHashes();
+      const username = document.getElementById('staffLoginUsername').value.trim().toLowerCase();
+      const pwd = document.getElementById('staffLoginPassword').value;
+      const errEl = document.getElementById('staffLoginError');
+      errEl.classList.add('hidden');
+
+      const staff = staffProfiles.find(u => u.role === 'staff' && ((u.username || '').toLowerCase() === username || u.email.toLowerCase() === username));
+      if (!staff) {
+        errEl.innerText = 'Invalid username or password.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (staff.status !== 'active') {
+        errEl.innerText = 'This staff account is deactivated. Contact the Store Owner.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      const hashed = await hashPassword(pwd, staff.id);
+      if (hashed !== staff.passwordHash) {
+        errEl.innerText = 'Invalid username or password.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      establishAuthSession(staff);
+      if (staff.mustChangePassword) {
+        openChangeOwnPasswordModal(true);
+      } else {
+        showToast(`Signed in to Staff Portal as ${staff.name}`, 'success');
+      }
+    }
+
+    function establishAuthSession(user) {
+      currentUser = user;
+      authSession = {
+        userId: user.id,
+        role: user.role,
+        passwordVersion: user.passwordVersion || 1,
+        loggedInAt: new Date().toISOString()
+      };
+      try {
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(authSession));
+      } catch (e) {}
+      applyPortalModeUI();
+      populateCreatorDropdowns();
+      renderCurrentView();
+    }
+
+    function validateActiveAuthSession() {
+      try {
+        const raw = localStorage.getItem(AUTH_SESSION_KEY);
+        authSession = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        authSession = null;
+      }
+      if (!authSession) {
+        showAuthPortalScreen();
+        return false;
+      }
+      const user = staffProfiles.find(u => u.id === authSession.userId);
+      if (!user || user.status !== 'active' || (user.passwordVersion || 1) !== (authSession.passwordVersion || 1)) {
+        logoutCurrentUser(true);
+        return false;
+      }
+      currentUser = user;
+      applyPortalModeUI();
+      return true;
+    }
+
+    function showAuthPortalScreen() {
+      document.getElementById('authPortalScreen')?.classList.remove('hidden');
+      document.getElementById('ownerMainContainer')?.classList.add('hidden');
+      document.getElementById('staffPortalView')?.classList.add('hidden');
+    }
+
+    function applyPortalModeUI() {
+      document.getElementById('authPortalScreen')?.classList.add('hidden');
+      const ownerMain = document.getElementById('ownerMainContainer');
+      const staffPortal = document.getElementById('staffPortalView');
+      const topHeader = document.querySelector('header');
+      const quickBar = document.querySelector('header + div + section');
+      const ownerMobNav = document.querySelector('#ownerMainContainer + nav');
+
+      if (currentUser.role === 'owner') {
+        ownerMain?.classList.remove('hidden');
+        staffPortal?.classList.add('hidden');
+        topHeader?.classList.remove('hidden');
+        quickBar?.classList.remove('hidden');
+        ownerMobNav?.classList.remove('hidden');
+        document.getElementById('staffPrivacyBanner')?.classList.add('hidden');
+      } else {
+        // Strict Staff Portal Mode: hide all Owner UI elements
+        ownerMain?.classList.add('hidden');
+        topHeader?.classList.add('hidden');
+        quickBar?.classList.add('hidden');
+        ownerMobNav?.classList.add('hidden');
+        staffPortal?.classList.remove('hidden');
+        // Force Staff Portal to today's active date so historical dates cannot be browsed
+        currentDate = '2026-11-11';
+        renderStaffPortal();
+      }
+    }
+
+    function logoutCurrentUser(wasInvalidated = false) {
+      authSession = null;
+      try { localStorage.removeItem(AUTH_SESSION_KEY); } catch (e) {}
+      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
+        try { firebase.app().auth().signOut().catch(() => {}); } catch (e) {}
+      }
+      showAuthPortalScreen();
+      if (wasInvalidated) {
+        showToast('Session expired or password was reset. Please log in again.', 'warn');
+      } else {
+        showToast('Logged out securely.', 'info');
+      }
+    }
+
+    // Staff Portal Rendering & Actions
+    function switchStaffTab(tab) {
+      currentStaffPortalTab = tab;
+      ['entry', 'attendance', 'profile'].forEach(t => {
+        document.getElementById(`spTab-${t}`)?.classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`spNav-${t}`);
+        if (btn) {
+          btn.className = (t === tab)
+            ? 'flex flex-col items-center text-safari-800 font-bold text-xs'
+            : 'flex flex-col items-center text-slate-500 font-semibold text-xs';
+        }
+      });
+      renderStaffPortal();
+    }
+
+    function renderStaffPortal() {
+      if (!currentUser || currentUser.role !== 'staff') return;
+      const data = ensureDateData(currentDate);
+      const locked = isDateSessionLocked(currentDate);
+
+      document.getElementById('spAvatar').innerText = currentUser.initials;
+      document.getElementById('spStaffName').innerText = currentUser.name;
+      document.getElementById('spStaffRole').innerText = `${currentUser.roleLabel} • @${currentUser.username || 'staff'}`;
+
+      const badge = document.getElementById('spSessionBadge');
+      if (locked) {
+        badge.innerText = 'SESSION LOCKED';
+        badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-200 text-slate-800 border border-slate-300';
+        // Immediately remove today's business data from Staff Portal DOM
+        document.getElementById('spOpenWorkspace')?.classList.add('hidden');
+        document.getElementById('spLockedNotice')?.classList.remove('hidden');
+        document.getElementById('spTodayEntriesList').innerHTML = '';
+        document.getElementById('spLockedByMsg').innerText =
+          `Locked by ${data.session.lockedBy || 'Owner'} at ${data.session.lockedAt || 'day-end'}. Daily entries are archived and hidden from the Staff Portal.`;
+      } else {
+        badge.innerText = data.session?.status === 'submitted' ? 'SUBMITTED (OPEN)' : 'SESSION OPEN';
+        badge.className = 'px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200';
+        document.getElementById('spLockedNotice')?.classList.add('hidden');
+        document.getElementById('spOpenWorkspace')?.classList.remove('hidden');
+
+        // Enforce staff permissions on action buttons
+        const perms = currentUser.permissions || { canAddSales: true, canAddExpenses: true };
+        document.getElementById('spBtnAddSale')?.classList.toggle('opacity-50', !perms.canAddSales);
+        document.getElementById('spBtnAddExpense')?.classList.toggle('opacity-50', !perms.canAddExpenses);
+
+        // Show only current day entries created by this staff member
+        const mySales = (data.sales || []).filter(s => s.staffName === currentUser.name);
+        const myExps = (data.expenses || []).filter(e => e.staffName === currentUser.name && e.category !== 'personal');
+        const listEl = document.getElementById('spTodayEntriesList');
+        let html = '';
+        mySales.forEach(s => {
+          html += `
+            <div class="p-3 flex items-center justify-between">
+              <div>
+                <div class="font-bold text-slate-800">${s.productName} (${s.artNo})</div>
+                <div class="text-[11px] text-slate-500">Size ${s.size} • ${s.paymentMode.toUpperCase()} • ${s.time}</div>
+              </div>
+              <div class="text-right">
+                <div class="font-extrabold text-emerald-700">₹${s.sellingPrice}</div>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">${s.status}</span>
+              </div>
+            </div>`;
+        });
+        myExps.forEach(ex => {
+          html += `
+            <div class="p-3 flex items-center justify-between bg-rose-50/30">
+              <div>
+                <div class="font-bold text-slate-800">${ex.description}</div>
+                <div class="text-[11px] text-slate-500">Expense (${ex.category}) • ${ex.time}</div>
+              </div>
+              <div class="text-right font-extrabold text-rose-600">-₹${ex.amount}</div>
+            </div>`;
+        });
+        listEl.innerHTML = html || `<div class="p-6 text-center text-slate-400">No entries recorded by you yet today.</div>`;
+      }
+
+      // My Attendance (Read-only, only own attendance)
+      const att = data.attendance?.[currentUser.id] || { status: 'not_marked', checkIn: '-', checkOut: '-' };
+      const attCard = document.getElementById('spMyAttendanceCard');
+      if (attCard) {
+        attCard.innerHTML = `
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+            <span class="text-slate-600 font-semibold">Today's Status (${currentDate}):</span>
+            <span class="px-2.5 py-1 rounded-lg font-extrabold uppercase text-[11px] ${att.status === 'present' ? 'bg-emerald-100 text-emerald-800' : att.status === 'half-day' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}">${att.status}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+              <span class="text-slate-500 block text-[10px]">Check-In</span>
+              <strong class="text-slate-900 font-mono">${att.checkIn || '-'}</strong>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+              <span class="text-slate-500 block text-[10px]">Check-Out</span>
+              <strong class="text-slate-900 font-mono">${att.checkOut || 'Active'}</strong>
+            </div>
+          </div>`;
+      }
+
+      // My Profile
+      document.getElementById('spProfAvatar').innerText = currentUser.initials;
+      document.getElementById('spProfName').innerText = currentUser.name;
+      document.getElementById('spProfRole').innerText = currentUser.roleLabel;
+      document.getElementById('spProfDetails').innerHTML = `
+        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200"><span class="text-slate-400 block text-[10px]">Username</span><strong class="font-mono">@${currentUser.username}</strong></div>
+        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200"><span class="text-slate-400 block text-[10px]">Phone</span><strong>${currentUser.phone}</strong></div>
+        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200"><span class="text-slate-400 block text-[10px]">Joining Date</span><strong>${currentUser.joinDate || '2025-01-01'}</strong></div>
+        <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200"><span class="text-slate-400 block text-[10px]">Account Status</span><strong class="text-emerald-700 uppercase">${currentUser.status}</strong></div>
+      `;
+    }
+
+    function staffSubmitDaySession() {
+      if (isDateSessionLocked(currentDate)) {
+        showToast('Session is already locked by the Owner.', 'warn');
+        return;
+      }
+      const data = ensureDateData(currentDate);
+      data.session = {
+        ...(data.session || {}),
+        status: 'submitted',
+        submittedBy: currentUser.name,
+        submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      addAuditLog('SESSION_SUBMITTED', `Daily entries submitted by ${currentUser.name} for ${currentDate}`);
+      saveAppData();
+      showToast('Today’s entries saved & submitted for Owner review!', 'success');
+      renderStaffPortal();
+    }
+
+    // Owner Session Lock / Unlock
+    function openSessionLockConfirmModal(mode) {
+      if (!requireOwnerRole()) return;
+      pendingSessionLockMode = mode;
+      const title = document.getElementById('sessionLockModalTitle');
+      const desc = document.getElementById('sessionLockModalDesc');
+      const reasonWrap = document.getElementById('sessionUnlockReasonWrap');
+      const btn = document.getElementById('btnConfirmSessionLockAction');
+
+      if (mode === 'lock') {
+        title.innerText = `Lock Session (${currentDate})`;
+        desc.innerText = 'Locking this session makes all entries read-only and immediately removes today’s data from the Staff Portal.';
+        reasonWrap.classList.add('hidden');
+        btn.innerText = 'Confirm & Lock Day';
+        btn.className = 'flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl shadow';
+      } else {
+        title.innerText = `Unlock Session (${currentDate})`;
+        desc.innerText = 'Unlocking reopens this day for controlled edits and will be recorded in the Security Audit Log.';
+        reasonWrap.classList.remove('hidden');
+        document.getElementById('sessionUnlockReasonInput').value = '';
+        btn.innerText = 'Confirm Unlock';
+        btn.className = 'flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl shadow';
+      }
+      openModal('modalSessionLockConfirm');
+    }
+
+    function executeSessionLockAction() {
+      if (!requireOwnerRole()) return;
+      const data = ensureDateData(currentDate);
+      const nowTime = new Date().toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+
+      if (pendingSessionLockMode === 'lock') {
+        data.session = {
+          ...(data.session || {}),
+          status: 'locked',
+          lockedBy: currentUser.name,
+          lockedAt: nowTime
+        };
+        addAuditLog('SESSION_LOCKED', `Session ${currentDate} locked by ${currentUser.name}`);
+        showToast(`Session ${currentDate} locked! Hidden from Staff Portal.`, 'success');
+      } else {
+        const reason = document.getElementById('sessionUnlockReasonInput').value.trim();
+        if (!reason) {
+          showToast('Please enter a reason for unlocking (required for audit log).', 'warn');
+          return;
+        }
+        data.session = {
+          ...(data.session || {}),
+          status: 'open',
+          unlockedBy: currentUser.name,
+          unlockedAt: nowTime,
+          unlockReason: reason
+        };
+        addAuditLog('SESSION_UNLOCKED', `Session ${currentDate} unlocked by ${currentUser.name}. Reason: ${reason}`);
+        showToast(`Session ${currentDate} unlocked for controlled correction.`, 'info');
+      }
+      saveAppData();
+      closeModal('modalSessionLockConfirm');
+      renderCurrentView();
+    }
+
+    // Staff Password Reset & Delete Confirmation
+    function openResetStaffPasswordModal(staffId) {
+      if (!requireOwnerRole()) return;
+      const s = staffProfiles.find(u => u.id === staffId);
+      if (!s || s.role === 'owner') return;
+      document.getElementById('resetPwdStaffId').value = s.id;
+      document.getElementById('resetPwdStaffLabel').innerText = `${s.name} (@${s.username || 'staff'})`;
+      document.getElementById('resetStaffNewPwd').value = '';
+      document.getElementById('resetStaffForceChange').checked = true;
+      openModal('modalResetStaffPassword');
+    }
+
+    async function submitResetStaffPassword(e) {
+      e.preventDefault();
+      if (!requireOwnerRole()) return;
+      const staffId = document.getElementById('resetPwdStaffId').value;
+      const newPwd = document.getElementById('resetStaffNewPwd').value;
+      const forceChange = document.getElementById('resetStaffForceChange').checked;
+      const strength = validatePasswordStrength(newPwd);
+      if (!strength.ok) {
+        showToast(strength.msg, 'warn');
+        return;
+      }
+      const s = staffProfiles.find(u => u.id === staffId);
+      if (!s) return;
+      s.passwordHash = await hashPassword(newPwd, s.id);
+      s.passwordVersion = (s.passwordVersion || 1) + 1; // Invalidates old sessions immediately
+      s.mustChangePassword = forceChange;
+      addAuditLog('STAFF_PASSWORD_RESET', `Password reset for ${s.name} (@${s.username}) by ${currentUser.name}. Force change: ${forceChange}`);
+      saveAppData();
+      closeModal('modalResetStaffPassword');
+      showToast(`Password reset for ${s.name}. Previous password & sessions invalidated.`, 'success');
+    }
+
+    function openChangeOwnPasswordModal(isForced = false) {
+      document.getElementById('ownCurrentPassword').value = '';
+      document.getElementById('ownNewPassword').value = '';
+      document.getElementById('ownConfirmPassword').value = '';
+      document.getElementById('ownPwdErrorMsg').classList.add('hidden');
+      document.getElementById('forcedPwdBanner').classList.toggle('hidden', !isForced);
+      document.getElementById('currentPwdFieldWrap').classList.toggle('hidden', isForced);
+      document.getElementById('btnCloseChangeOwnPwd').classList.toggle('hidden', isForced);
+      openModal('modalChangeOwnPassword');
+    }
+
+    async function submitChangeOwnPassword(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('ownPwdErrorMsg');
+      errEl.classList.add('hidden');
+      const isForced = !document.getElementById('forcedPwdBanner').classList.contains('hidden');
+      const curPwd = document.getElementById('ownCurrentPassword').value;
+      const newPwd = document.getElementById('ownNewPassword').value;
+      const confPwd = document.getElementById('ownConfirmPassword').value;
+
+      if (!isForced) {
+        const curHash = await hashPassword(curPwd, currentUser.id);
+        if (curHash !== currentUser.passwordHash) {
+          errEl.innerText = 'Current password is incorrect.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+      }
+      const strength = validatePasswordStrength(newPwd);
+      if (!strength.ok) {
+        errEl.innerText = strength.msg;
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (newPwd !== confPwd) {
+        errEl.innerText = 'New password and confirmation do not match.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      currentUser.passwordHash = await hashPassword(newPwd, currentUser.id);
+      currentUser.passwordVersion = (currentUser.passwordVersion || 1) + 1;
+      currentUser.mustChangePassword = false;
+      if (authSession) {
+        authSession.passwordVersion = currentUser.passwordVersion;
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(authSession));
+      }
+      addAuditLog(currentUser.role === 'owner' ? 'OWNER_PASSWORD_CHANGED' : 'STAFF_PASSWORD_CHANGED', `${currentUser.name} updated their own password.`);
+      saveAppData();
+      closeModal('modalChangeOwnPassword');
+      showToast('Password updated securely!', 'success');
+    }
+
+    function openForgotPasswordModal() {
+      document.getElementById('forgotPwdFeedback').classList.add('hidden');
+      openModal('modalForgotPassword');
+    }
+
+    async function submitForgotPassword(e) {
+      e.preventDefault();
+      const email = document.getElementById('forgotOwnerEmail').value.trim();
+      const fb = document.getElementById('forgotPwdFeedback');
+      if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0 && firebase.auth) {
+        try { await firebase.app().auth().sendPasswordResetEmail(email); } catch (err) {}
+      }
+      // Generic non-enumerating message (never exposes whether account exists)
+      fb.innerText = 'If an owner account is registered with this email, a secure password reset link has been sent.';
+      fb.classList.remove('hidden');
+    }
+
+    function openDeleteStaffConfirmModal(staffId) {
+      if (!requireOwnerRole()) return;
+      const s = staffProfiles.find(u => u.id === staffId);
+      if (!s || s.role === 'owner') return;
+      document.getElementById('deleteStaffTargetId').value = s.id;
+      document.getElementById('deleteStaffTargetName').innerText = `${s.name} (@${s.username})`;
+      openModal('modalDeleteStaffConfirm');
+    }
+
+    function confirmPermanentDeleteStaff() {
+      if (!requireOwnerRole()) return;
+      const id = document.getElementById('deleteStaffTargetId').value;
+      const s = staffProfiles.find(u => u.id === id);
+      if (!s || s.role === 'owner') return;
+      staffProfiles = staffProfiles.filter(u => u.id !== id);
+      // Historical sales, expenses, and attendance remain intact!
+      addAuditLog('STAFF_DELETED', `Permanently deleted staff account ${s.name} (@${s.username}). Historical records preserved.`);
+      saveAppData();
+      closeModal('modalDeleteStaffConfirm');
+      renderStaffManagementList();
+      populateCreatorDropdowns();
+      showToast(`Deleted ${s.name}. All historical records preserved.`, 'info');
+    }
+
+    function toggleStaffActiveStatus(staffId) {
+      if (!requireOwnerRole()) return;
+      const s = staffProfiles.find(u => u.id === staffId);
+      if (!s || s.role === 'owner') return;
+      s.status = s.status === 'active' ? 'inactive' : 'active';
+      addAuditLog(s.status === 'active' ? 'STAFF_ACTIVATED' : 'STAFF_DEACTIVATED', `${s.name} set to ${s.status} by ${currentUser.name}`);
+      saveAppData();
+      renderStaffManagementList();
+      showToast(`${s.name} is now ${s.status}.`, 'info');
+    }
+
+    function previewStaffPhotoUpload(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        document.getElementById('staffInputPhotoData').value = ev.target.result;
+        showToast('Profile photo attached!', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderOwnerSessionControlAndAudit(data) {
+      const sess = data.session || { status: 'open' };
+      const badge = document.getElementById('ownerSessionStatusBadge');
+      const iconBox = document.getElementById('ownerSessionIconBox');
+      const meta = document.getElementById('ownerSessionMetaText');
+      const btnLock = document.getElementById('btnOwnerLockSession');
+      const btnUnlock = document.getElementById('btnOwnerUnlockSession');
+
+      if (badge && iconBox && meta) {
+        if (sess.status === 'locked') {
+          badge.innerText = 'LOCKED';
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-900 uppercase';
+          iconBox.className = 'w-10 h-10 rounded-xl bg-slate-900 text-amber-400 flex items-center justify-center text-base font-bold flex-shrink-0';
+          iconBox.innerHTML = '<i class="fa-solid fa-lock"></i>';
+          meta.innerText = `Locked by ${sess.lockedBy || 'Owner'} at ${sess.lockedAt || ''}. Hidden from Staff Portal.`;
+          btnLock?.classList.add('hidden');
+          btnUnlock?.classList.remove('hidden');
+        } else if (sess.status === 'submitted') {
+          badge.innerText = 'SUBMITTED';
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 uppercase';
+          iconBox.className = 'w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-base font-bold flex-shrink-0';
+          iconBox.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
+          meta.innerText = `Submitted by ${sess.submittedBy || 'Staff'} at ${sess.submittedAt || ''}. Ready for Owner Lock.`;
+          btnLock?.classList.remove('hidden');
+          btnUnlock?.classList.add('hidden');
+        } else {
+          badge.innerText = 'OPEN';
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 uppercase';
+          iconBox.className = 'w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base font-bold flex-shrink-0';
+          iconBox.innerHTML = '<i class="fa-solid fa-lock-open"></i>';
+          meta.innerText = 'Staff can enter & review today’s data until you lock this session.';
+          btnLock?.classList.remove('hidden');
+          btnUnlock?.classList.add('hidden');
+        }
+      }
+
+      const auditEl = document.getElementById('ownerAuditLogList');
+      if (auditEl) {
+        if (!auditLogs || auditLogs.length === 0) {
+          auditEl.innerHTML = '<div class="text-slate-400 italic p-3 text-center">No security events logged yet.</div>';
+        } else {
+          auditEl.innerHTML = auditLogs.slice(0, 30).map(a => `
+            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-start justify-between gap-2">
+              <div>
+                <span class="px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 font-mono font-bold text-[10px]">${a.action}</span>
+                <div class="font-semibold text-slate-800 mt-1">${a.details}</div>
+              </div>
+              <div class="text-[10px] text-slate-400 whitespace-nowrap text-right">${a.timestamp}</div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
     // On Load
     window.addEventListener('DOMContentLoaded', () => {
       initAppData();
@@ -5088,8 +6321,11 @@
       updateDateLabels();
       populateCreatorDropdowns();
       setExpenseCategory('business');
-      renderCurrentView();
-      initFirebaseSync();
+      ensureDefaultPasswordHashes().then(() => {
+        validateActiveAuthSession();
+        renderCurrentView();
+        initFirebaseSync();
+      });
       // Register Service Worker for standalone PWA installation on mobile/desktop
       if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
         navigator.serviceWorker.register('sw.js').catch(() => {});
